@@ -12,6 +12,12 @@ from fastapi.staticfiles import StaticFiles
 from app.pipeline import analyze_ticket
 from app.schemas import TicketRequest, TicketResponse
 
+# 1. Brought in shipra's safety firewall (and analyzer if needed)
+from app.analyzer import analyze
+from app.models import ErrorResponse
+from app.safety.firewall import apply_safety_firewall
+
+# 2. Kept main's logging setup
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
@@ -37,6 +43,7 @@ app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
 #   empty complaint (value_error) → 422
 # ---------------------------------------------------------------------------
 
+# 3. Kept main's cleaner global validation handler instead of shipra's manual endpoint checks
 @app.exception_handler(RequestValidationError)
 async def validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
     errors = exc.errors()
@@ -99,7 +106,9 @@ async def index() -> FileResponse:
     summary="Analyze a customer support ticket",
 )
 async def analyze_ticket_endpoint(ticket: TicketRequest) -> TicketResponse:
-    return await analyze_ticket(ticket)
+    # 4. Integrated shipra's safety firewall into main's async pipeline endpoint
+    analysis_result = await analyze_ticket(ticket)
+    return apply_safety_firewall(ticket, analysis_result)
 
 
 # ---------------------------------------------------------------------------
