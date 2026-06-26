@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QueueStorm Investigator — Agent Console</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --pink:   #e2136e;
+      --pink-d: #b80e55;
+      --bg:     #f6f7fb;
+      --card:   #ffffff;
+      --border: #dde1e9;
+      --text:   #1a1d2e;
+      --muted:  #6b7280;
+      --green:  #16a34a;
+      --amber:  #d97706;
+      --red:    #dc2626;
+      --blue:   #2563eb;
+      --purple: #7c3aed;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    header {
+      background: var(--pink);
+      color: #fff;
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,.15);
+    }
+    header h1 { font-size: 1.3rem; font-weight: 700; letter-spacing: .02em; }
+    header span { font-size: .85rem; opacity: .85; }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 420px 1fr;
+      gap: 1.5rem;
+      max-width: 1400px;
+      margin: 1.5rem auto;
+      padding: 0 1.5rem;
+    }
+
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem;
+      box-shadow: 0 1px 4px rgba(0,0,0,.06);
+    }
+
+    .card h2 {
+      font-size: .9rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--muted);
+      margin-bottom: .75rem;
+    }
+
+    label { display: block; font-size: .875rem; font-weight: 500; margin-bottom: .3rem; }
+
+    textarea, select {
+      width: 100%;
+      font-family: inherit;
+      font-size: .875rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: .6rem .75rem;
+      background: var(--bg);
+      color: var(--text);
+      resize: vertical;
+    }
+    textarea:focus, select:focus { outline: 2px solid var(--pink); border-color: var(--pink); }
+
+    .field { margin-bottom: .85rem; }
+
+    .row { display: flex; gap: .75rem; }
+    .row .field { flex: 1; }
+
+    button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: .5rem;
+      width: 100%;
+      padding: .75rem;
+      background: var(--pink);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: .95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .15s;
+      margin-top: .5rem;
+    }
+    button:hover { background: var(--pink-d); }
+    button:disabled { background: var(--muted); cursor: not-allowed; }
+
+    /* ── Result panel ── */
+    #result-panel { display: none; }
+
+    .human-review-banner {
+      background: #fef2f2;
+      border: 2px solid var(--red);
+      border-radius: 8px;
+      padding: .75rem 1rem;
+      color: var(--red);
+      font-weight: 700;
+      font-size: .95rem;
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      margin-bottom: 1rem;
+    }
+
+    .chips { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1rem; }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: .3rem;
+      padding: .25rem .65rem;
+      border-radius: 999px;
+      font-size: .75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+    .chip.verdict-consistent    { background: #dcfce7; color: #15803d; }
+    .chip.verdict-inconsistent  { background: #fef3c7; color: #92400e; }
+    .chip.verdict-insufficient  { background: #f3f4f6; color: #374151; }
+    .chip.sev-low      { background: #f0fdf4; color: #15803d; }
+    .chip.sev-medium   { background: #fffbeb; color: #92400e; }
+    .chip.sev-high     { background: #fff7ed; color: #c2410c; }
+    .chip.sev-critical { background: #fef2f2; color: #b91c1c; }
+    .chip.case-type    { background: #eff6ff; color: #1d4ed8; }
+    .chip.dept         { background: #faf5ff; color: #6d28d9; }
+    .chip.conf         { background: #f0fdf4; color: #166534; }
+
+    .info-box {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: .75rem 1rem;
+      font-size: .875rem;
+      line-height: 1.6;
+      margin-bottom: .75rem;
+    }
+    .info-box strong { display: block; font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: .25rem; }
+
+    .reply-edit {
+      width: 100%;
+      font-family: inherit;
+      font-size: .875rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: .75rem 1rem;
+      background: #fff;
+      color: var(--text);
+      resize: vertical;
+      min-height: 120px;
+    }
+    .reply-edit:focus { outline: 2px solid var(--pink); border-color: var(--pink); }
+
+    .reason-codes { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .5rem; }
+    .reason-code {
+      font-size: .7rem;
+      background: #f3f4f6;
+      color: var(--muted);
+      padding: .2rem .5rem;
+      border-radius: 4px;
+      font-family: monospace;
+    }
+
+    .spinner {
+      display: none;
+      width: 18px; height: 18px;
+      border: 2px solid rgba(255,255,255,.4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .error-box {
+      display: none;
+      background: #fef2f2;
+      border: 1px solid #fca5a5;
+      border-radius: 8px;
+      padding: .75rem 1rem;
+      color: var(--red);
+      font-size: .875rem;
+      margin-top: .75rem;
+    }
+
+    #txn-history { min-height: 90px; font-family: monospace; font-size: .8rem; }
+  </style>
+</head>
+<body>
+
+<header>
+  <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+    <circle cx="14" cy="14" r="14" fill="rgba(255,255,255,.2)"/>
+    <path d="M8 10h12M8 14h8M8 18h10" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+  </svg>
+  <div>
+    <h1>QueueStorm Investigator</h1>
+    <span>bKash Fintech Support Copilot — Agent Console</span>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- ── LEFT: Input form ── -->
+  <div>
+    <div class="card">
+      <h2>Ticket Details</h2>
+
+      <div class="field">
+        <label for="ticket-id">Ticket ID</label>
+        <textarea id="ticket-id" rows="1" style="resize:none">TKT-001</textarea>
+      </div>
+
+      <div class="field">
+        <label for="complaint">Customer Complaint</label>
+        <textarea id="complaint" rows="5" placeholder="Paste the customer's complaint here…">Someone called me claiming to be a bKash agent and asked me to share my OTP to verify my account. I did not share it but I am worried about my account security.</textarea>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label for="language">Language</label>
+          <select id="language">
+            <option value="">Auto-detect</option>
+            <option value="en">English</option>
+            <option value="bn">Bangla</option>
+            <option value="mixed">Mixed</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="channel">Channel</label>
+          <select id="channel">
+            <option value="">Unknown</option>
+            <option value="in_app_chat">In-App Chat</option>
+            <option value="call_center" selected>Call Center</option>
+            <option value="email">Email</option>
+            <option value="merchant_portal">Merchant Portal</option>
+            <option value="field_agent">Field Agent</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="user-type">User Type</label>
+        <select id="user-type">
+          <option value="customer" selected>Customer</option>
+          <option value="merchant">Merchant</option>
+          <option value="agent">Agent</option>
+          <option value="unknown">Unknown</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="txn-history">Transaction History (JSON array — empty [] if none)</label>
+        <textarea id="txn-history" rows="5">[]</textarea>
+      </div>
+
+      <button id="analyze-btn" onclick="analyzeTicket()">
+        <span>Analyze Ticket</span>
+        <div class="spinner" id="spinner"></div>
+      </button>
+
+      <div class="error-box" id="error-box"></div>
+    </div>
+
+    <!-- Sample loader -->
+    <div class="card" style="margin-top:1rem">
+      <h2>Load Sample Case</h2>
+      <div class="field">
+        <select id="sample-select" onchange="loadSample()">
+          <option value="">— select a sample —</option>
+          <option value="phishing_en">Case 01 · Phishing (EN)</option>
+          <option value="payment_failed">Case 02 · Payment Failed</option>
+          <option value="duplicate">Case 03 · Duplicate Payment</option>
+          <option value="wrong_transfer">Case 04 · Wrong Transfer</option>
+          <option value="refund">Case 05 · Refund Request</option>
+          <option value="settlement">Case 06 · Merchant Settlement Delay</option>
+          <option value="cash_in">Case 07 · Agent Cash-In Issue</option>
+          <option value="phishing_bn">Case 08 · Phishing (BN)</option>
+          <option value="inconsistent">Case 09 · Wrong Transfer (Inconsistent)</option>
+          <option value="vague">Case 10 · Vague / Other</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── RIGHT: Result panel ── -->
+  <div id="result-panel">
+    <div class="card">
+      <h2>Analysis Result</h2>
+
+      <div id="human-banner" class="human-review-banner" style="display:none">
+        ⚠ HUMAN REVIEW REQUIRED — Do not send the reply without agent approval.
+      </div>
+
+      <div class="chips" id="chips"></div>
+
+      <div class="info-box" id="box-summary">
+        <strong>Agent Summary</strong>
+        <span id="summary-text"></span>
+      </div>
+
+      <div class="info-box" id="box-action">
+        <strong>Recommended Next Action</strong>
+        <span id="action-text"></span>
+      </div>
+
+      <div class="info-box" style="padding-bottom:.5rem">
+        <strong>Customer Reply (Editable)</strong>
+        <textarea id="reply-edit" class="reply-edit"></textarea>
+      </div>
+
+      <div>
+        <strong style="font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)">Reason Codes</strong>
+        <div class="reason-codes" id="reason-codes"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const SAMPLES = {
+  phishing_en: {
+    ticket_id: "TKT-001", language: "en", channel: "call_center", user_type: "customer",
+    complaint: "Someone called me claiming to be a bKash agent and asked me to share my OTP to verify my account. I did not share it but I am worried about my account security.",
+    transaction_history: []
+  },
+  payment_failed: {
+    ticket_id: "TKT-002", language: "en", channel: "in_app_chat", user_type: "customer",
+    complaint: "I tried to pay 500 BDT to Shop ABC but the payment failed. My account was deducted but the merchant did not receive the money.",
+    transaction_history: [
+      { transaction_id: "TXN-2001", timestamp: "2024-01-15T10:30:00Z", type: "payment", amount: 500, counterparty: "Shop ABC", status: "failed" },
+      { transaction_id: "TXN-2002", timestamp: "2024-01-14T09:00:00Z", type: "transfer", amount: 200, counterparty: "01711111111", status: "completed" }
+    ]
+  },
+  duplicate: {
+    ticket_id: "TKT-003", language: "en", channel: "in_app_chat", user_type: "customer",
+    complaint: "I was charged twice for the same payment of 1000 BDT to Karim Store. I only made one payment but was billed two times.",
+    transaction_history: [
+      { transaction_id: "TXN-3001", timestamp: "2024-01-15T11:00:00Z", type: "payment", amount: 1000, counterparty: "Karim Store", status: "completed" },
+      { transaction_id: "TXN-3002", timestamp: "2024-01-15T11:02:30Z", type: "payment", amount: 1000, counterparty: "Karim Store", status: "completed" },
+      { transaction_id: "TXN-3003", timestamp: "2024-01-14T08:00:00Z", type: "transfer", amount: 200, counterparty: "01722222222", status: "completed" }
+    ]
+  },
+  wrong_transfer: {
+    ticket_id: "TKT-004", language: "en", channel: "call_center", user_type: "customer",
+    complaint: "I accidentally sent 2000 BDT to the wrong number 01712345678. I made a mistake and transferred to the wrong person. Please investigate this wrong transfer.",
+    transaction_history: [
+      { transaction_id: "TXN-4001", timestamp: "2024-01-15T14:00:00Z", type: "transfer", amount: 2000, counterparty: "01712345678", status: "completed" }
+    ]
+  },
+  refund: {
+    ticket_id: "TKT-005", language: "en", channel: "email", user_type: "customer",
+    complaint: "I made a payment of 800 BDT to an online shop but I want to cancel and get a refund. I changed my mind and no longer want the purchase.",
+    transaction_history: [
+      { transaction_id: "TXN-5001", timestamp: "2024-01-15T15:00:00Z", type: "payment", amount: 800, counterparty: "Online Shop XYZ", status: "completed" }
+    ]
+  },
+  settlement: {
+    ticket_id: "TKT-006", language: "en", channel: "merchant_portal", user_type: "merchant",
+    complaint: "I am a merchant and my bKash settlement of 15000 BDT has been pending for 3 days. I have not received the settlement payment for my sales yet.",
+    transaction_history: [
+      { transaction_id: "TXN-6001", timestamp: "2024-01-12T10:00:00Z", type: "settlement", amount: 15000, counterparty: "Merchant Account", status: "pending" },
+      { transaction_id: "TXN-6002", timestamp: "2024-01-05T10:00:00Z", type: "settlement", amount: 12000, counterparty: "Merchant Account", status: "completed" }
+    ]
+  },
+  cash_in: {
+    ticket_id: "TKT-007", language: "en", channel: "call_center", user_type: "customer",
+    complaint: "I did a cash in of 3000 BDT through a bKash agent yesterday but the money has not been added to my account. The agent gave me a receipt but my balance has not changed.",
+    transaction_history: [
+      { transaction_id: "TXN-7001", timestamp: "2024-01-14T16:00:00Z", type: "cash_in", amount: 3000, counterparty: "bKash Agent 0456", status: "pending" }
+    ]
+  },
+  phishing_bn: {
+    ticket_id: "TKT-008", language: "bn", channel: "call_center", user_type: "customer",
+    complaint: "আমাকে একজন ফোন করে বললো সে বিকাশ অফিস থেকে বলছে এবং আমার ওটিপি চাইলো। আমি দিইনি কিন্তু আমি চিন্তিত।",
+    transaction_history: []
+  },
+  inconsistent: {
+    ticket_id: "TKT-009", language: "en", channel: "in_app_chat", user_type: "customer",
+    complaint: "I sent 500 BDT to 01987654321 by mistake. This was a wrong transfer to the wrong person. Please investigate this wrong transfer immediately.",
+    transaction_history: [
+      { transaction_id: "TXN-9001", timestamp: "2024-01-15T18:00:00Z", type: "transfer", amount: 500, counterparty: "01987654321", status: "completed" },
+      { transaction_id: "TXN-9002", timestamp: "2024-01-10T12:00:00Z", type: "transfer", amount: 200, counterparty: "01987654321", status: "completed" },
+      { transaction_id: "TXN-9003", timestamp: "2024-01-05T09:00:00Z", type: "transfer", amount: 150, counterparty: "01987654321", status: "completed" }
+    ]
+  },
+  vague: {
+    ticket_id: "TKT-010", language: "en", channel: "in_app_chat", user_type: "customer",
+    complaint: "I have a problem with my bKash account. Something is not working correctly. Please help me as soon as possible.",
+    transaction_history: []
+  }
+};
+
+function loadSample() {
+  const key = document.getElementById("sample-select").value;
+  if (!key) return;
+  const s = SAMPLES[key];
+  document.getElementById("ticket-id").value = s.ticket_id;
+  document.getElementById("complaint").value = s.complaint;
+  document.getElementById("language").value = s.language || "";
+  document.getElementById("channel").value = s.channel || "";
+  document.getElementById("user-type").value = s.user_type || "customer";
+  document.getElementById("txn-history").value = JSON.stringify(s.transaction_history, null, 2);
+}
+
+function verdictClass(v) {
+  if (v === "consistent") return "verdict-consistent";
+  if (v === "inconsistent") return "verdict-inconsistent";
+  return "verdict-insufficient";
+}
+function sevClass(s) {
+  return { low: "sev-low", medium: "sev-medium", high: "sev-high", critical: "sev-critical" }[s] || "";
+}
+function label(v) {
+  return v.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+}
+
+async function analyzeTicket() {
+  const btn = document.getElementById("analyze-btn");
+  const spin = document.getElementById("spinner");
+  const errBox = document.getElementById("error-box");
+
+  errBox.style.display = "none";
+  document.getElementById("result-panel").style.display = "none";
+
+  let txnHistory;
+  try {
+    txnHistory = JSON.parse(document.getElementById("txn-history").value || "[]");
+  } catch {
+    errBox.textContent = "Transaction History must be valid JSON (e.g. [] for none).";
+    errBox.style.display = "block";
+    return;
+  }
+
+  const body = {
+    ticket_id: document.getElementById("ticket-id").value.trim() || "TKT-???",
+    complaint: document.getElementById("complaint").value,
+    transaction_history: txnHistory,
+  };
+  const lang = document.getElementById("language").value;
+  const channel = document.getElementById("channel").value;
+  const userType = document.getElementById("user-type").value;
+  if (lang) body.language = lang;
+  if (channel) body.channel = channel;
+  if (userType) body.user_type = userType;
+
+  btn.disabled = true;
+  spin.style.display = "block";
+
+  try {
+    const res = await fetch("/analyze-ticket", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      errBox.textContent = typeof data.detail === "string"
+        ? data.detail
+        : JSON.stringify(data.detail, null, 2);
+      errBox.style.display = "block";
+      return;
+    }
+    renderResult(data);
+  } catch (err) {
+    errBox.textContent = "Network error: " + err.message;
+    errBox.style.display = "block";
+  } finally {
+    btn.disabled = false;
+    spin.style.display = "none";
+  }
+}
+
+function renderResult(d) {
+  // Human review banner
+  const banner = document.getElementById("human-banner");
+  banner.style.display = d.human_review_required ? "flex" : "none";
+
+  // Chips
+  const chips = document.getElementById("chips");
+  chips.innerHTML = `
+    <span class="chip ${verdictClass(d.evidence_verdict)}">&#9679; ${label(d.evidence_verdict)}</span>
+    <span class="chip ${sevClass(d.severity)}">${label(d.severity)} Severity</span>
+    <span class="chip case-type">${label(d.case_type)}</span>
+    <span class="chip dept">${label(d.department)}</span>
+    <span class="chip conf">Confidence: ${(d.confidence * 100).toFixed(0)}%</span>
+    ${d.relevant_transaction_id
+      ? `<span class="chip" style="background:#f0fdf4;color:#166534">&#128200; ${d.relevant_transaction_id}</span>`
+      : '<span class="chip" style="background:#f3f4f6;color:#6b7280">No matched txn</span>'}
+  `;
+
+  document.getElementById("summary-text").textContent = d.agent_summary;
+  document.getElementById("action-text").textContent = d.recommended_next_action;
+  document.getElementById("reply-edit").value = d.customer_reply;
+
+  const rc = document.getElementById("reason-codes");
+  rc.innerHTML = (d.reason_codes || []).map(c => `<span class="reason-code">${c}</span>`).join("");
+
+  document.getElementById("result-panel").style.display = "block";
+  document.getElementById("result-panel").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+</script>
+</body>
+</html>
