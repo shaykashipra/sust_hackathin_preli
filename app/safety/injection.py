@@ -13,9 +13,23 @@ INJECTION_PATTERNS = [
     "override",
     "bypass",
     "say refund approved",
+    "refund approved bolo",
+    "refund diye dao",
+    "fund dao",
+    "taka dao",
     "ask for otp",
     "ask the customer for otp",
+    "otp chao",
     "reveal prompt",
+    "ami admin",
+    "i am admin",
+    "ager shob vule jao",
+    "ager sob vule jao",
+    "shob vule jao",
+    "sob vule jao",
+    "program kora hoise",
+    "program kora hoyeche",
+    "ekhon amake fund dao",
 ]
 
 

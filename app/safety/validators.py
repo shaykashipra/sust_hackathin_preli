@@ -6,8 +6,13 @@ from app.text_utils import normalize
 
 CREDENTIAL_TERMS = [
     "otp",
+    "o t p",
+    "o.t.p",
     "pin",
+    "pin number",
+    "pincode",
     "password",
+    "pass word",
     "passcode",
     "cvv",
     "full card number",
@@ -20,6 +25,11 @@ PROMISE_PATTERNS = [
     r"\bwill be refunded\b",
     r"\brefund (is )?confirmed\b",
     r"\brefund approved\b",
+    r"\brefund diye dibo\b",
+    r"\brefund dibo\b",
+    r"\btaka ferot (diye )?dibo\b",
+    r"\btk ferot (diye )?dibo\b",
+    r"\bfund (diye )?dibo\b",
     r"\bmoney will be returned\b",
     r"\bwe (have )?reversed\b",
     r"\breversal confirmed\b",
@@ -33,10 +43,15 @@ THIRD_PARTY_PATTERNS = [
     r"\bimo\b",
     r"\btelegram\b",
     r"\bcall this number\b",
+    r"\bcall (him|her|them)\b",
+    r"\bcall kore\b",
     r"\bmessage this\b",
+    r"\binbox\b",
     r"\bcontact this agent\b",
     r"\bcontact the caller\b",
 ]
+
+PHONE_PATTERN = r"(?:\+?88)?01[3-9]\d{8}"
 
 SAFE_CREDENTIAL_WARNING = (
     "Please do not share your PIN, OTP, password, full card number, or secret credentials with anyone. "
@@ -60,7 +75,7 @@ def has_unsafe_promise(text: str) -> bool:
 
 def has_third_party_direction(text: str) -> bool:
     clean = normalize(text)
-    return any(re.search(pattern, clean) for pattern in THIRD_PARTY_PATTERNS)
+    return any(re.search(pattern, clean) for pattern in THIRD_PARTY_PATTERNS) or bool(re.search(PHONE_PATTERN, clean))
 
 
 def safe_customer_fallback(response: TicketResponse) -> str:
