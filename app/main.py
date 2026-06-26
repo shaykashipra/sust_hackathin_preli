@@ -12,9 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from app.pipeline import analyze_ticket
 from app.schemas import TicketRequest, TicketResponse
 
-# 1. Brought in shipra's safety firewall (and analyzer if needed)
-from app.analyzer import analyze
-from app.models import ErrorResponse
+# Final post-analysis safety firewall.
 from app.safety.firewall import apply_safety_firewall
 
 # 2. Kept main's logging setup

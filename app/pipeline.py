@@ -41,6 +41,7 @@ _AMOUNT_RE = re.compile(
     r"|(\d[\d,]*(?:\.\d+)?)\s*(?:BDT|Taka|taka|৳|টাকা)",
     re.IGNORECASE,
 )
+_GENERIC_AMOUNT_RE = re.compile(r"(?<!\d)(\d{2,7})(?!\d)")
 _PHONE_RE = re.compile(r"01[3-9]\d{8}")
 
 
@@ -60,6 +61,10 @@ def _extract_rule_signals(complaint: str) -> Dict[str, Any]:
             signals["claimed_amount"] = float(raw)
         except ValueError:
             pass
+    elif not _PHONE_RE.search(complaint):
+        m = _GENERIC_AMOUNT_RE.search(complaint)
+        if m:
+            signals["claimed_amount"] = float(m.group(1))
 
     ph = _PHONE_RE.search(complaint)
     if ph:

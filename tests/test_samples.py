@@ -20,6 +20,12 @@ from app.main import app  # noqa: E402 — imported after env is cleared
 _CASES_PATH = Path(__file__).parent.parent / "SUST_Preli_Sample_Cases.json"
 _SEVERITY_ORDER = ["low", "medium", "high", "critical"]
 
+if not _CASES_PATH.exists():
+    pytest.skip(
+        "SUST_Preli_Sample_Cases.json is not present; skipping optional public sample pack tests.",
+        allow_module_level=True,
+    )
+
 
 def _load_cases():
     with open(_CASES_PATH, "r", encoding="utf-8") as f:

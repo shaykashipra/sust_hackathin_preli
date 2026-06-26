@@ -214,8 +214,8 @@ def determine_verdict(
         return "insufficient_data"
 
     # Inconsistency: "wrong transfer" but this counterparty is a repeat recipient
-    if intent == "wrong_transfer" and counterparty_hint:
-        cp_norm = counterparty_hint.replace("-", "").replace(" ", "").lower()
+    if intent == "wrong_transfer":
+        cp_norm = (counterparty_hint or txn.counterparty).replace("-", "").replace(" ", "").lower()
         prior_completed = sum(
             1 for t in transactions
             if t.transaction_id != relevant_txn_id

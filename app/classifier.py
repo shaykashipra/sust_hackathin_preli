@@ -50,6 +50,7 @@ _PAYMENT_FAILED_KW = [
     "payment failed", "failed to pay", "not completed", "unsuccessful",
     "didn't go through", "deducted but not received", "deducted but merchant",
     "money deducted", "charged but", "transaction failed",
+    "showed failed", "failed", "balance deducted",
 ]
 
 _DUPLICATE_KW = [
@@ -66,6 +67,7 @@ _REFUND_KW = [
 _WRONG_TRANSFER_KW = [
     "wrong number", "wrong person", "wrong account", "mistake", "accidentally",
     "wrong transfer", "sent to wrong", "by mistake", "mistakenly",
+    "did not get it", "didn't get it", "did not receive", "not received",
 ]
 
 _SETTLEMENT_KW = [
@@ -77,6 +79,8 @@ _AGENT_CASH_IN_KW = [
     "cash in", "cash-in", "agent cash", "cash in not reflected", "cash in not received",
     "cash in pending", "deposited through agent", "recharge through agent",
     "cash in but", "did a cash in",
+    "এজেন্ট", "ক্যাশ ইন", "আসেনি", "পাইনি",
+    "à¦à¦œ", "à¦•à§à¦¯à¦¾à¦¶", "à¦†à¦¸à§‡à¦¨à¦¿", "à¦ªà¦¾à¦‡à¦¨à¦¿",
 ]
 
 
@@ -98,9 +102,6 @@ def classify_case_type(
     if any(kw in c for kw in _DUPLICATE_KW):
         return CaseType.duplicate_payment
 
-    if any(kw in c for kw in _REFUND_KW):
-        return CaseType.refund_request
-
     if any(kw in c for kw in _WRONG_TRANSFER_KW):
         return CaseType.wrong_transfer
 
@@ -109,6 +110,9 @@ def classify_case_type(
 
     if any(kw in c for kw in _AGENT_CASH_IN_KW):
         return CaseType.agent_cash_in_issue
+
+    if any(kw in c for kw in _REFUND_KW):
+        return CaseType.refund_request
 
     # Use Groq intent as a secondary hint only
     _groq_map: dict[str, CaseType] = {
@@ -132,8 +136,8 @@ def classify_case_type(
 
 _BASE_DEPT: dict[CaseType, Department] = {
     CaseType.phishing_or_social_engineering: Department.fraud_risk,
-    CaseType.payment_failed: Department.customer_support,
-    CaseType.duplicate_payment: Department.dispute_resolution,
+    CaseType.payment_failed: Department.payments_ops,
+    CaseType.duplicate_payment: Department.payments_ops,
     CaseType.refund_request: Department.customer_support,
     CaseType.wrong_transfer: Department.dispute_resolution,
     CaseType.merchant_settlement_delay: Department.merchant_operations,
