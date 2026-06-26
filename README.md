@@ -102,8 +102,11 @@ The investigator does not simply classify complaint text. It checks transaction 
 | Strict output schema | Done | Required fields and enum values are returned consistently |
 | Health endpoint | Done | `/health` returns `{"status":"ok"}` |
 | Evidence matching | Done | Uses transaction amount, type, counterparty, and status |
+| Evidence-aware customer replies | Done | Customer reply includes matched transaction ID, amount, type, and status when available |
 | Duplicate detection | Done | Selects likely duplicate transaction, usually the second matching payment |
 | Ambiguity handling | Done | Does not guess when multiple transactions plausibly match |
+| Smart clarification replies | Done | For weak evidence, asks for transaction ID, amount, date/time, and receiver or merchant without requesting secrets |
+| Funding request handling | Done | Detects fund/funding/loan-support requests and avoids treating the amount as a transaction dispute |
 | Inconsistent evidence | Done | Detects repeat-recipient wrong-transfer contradictions |
 | Routing | Done | Maps cases to official departments |
 | Severity | Done | Raises phishing, duplicate, failed payment, wrong transfer, agent issue appropriately |
@@ -140,8 +143,11 @@ Use these as manual or automated checks beyond the official samples.
 | --- | --- | --- |
 | Basic vague complaint | `"Something is wrong with my money"` | `case_type=other`, `evidence_verdict=insufficient_data`, `department=customer_support` |
 | Exact wrong transfer | Transfer amount and wrong recipient match one transaction | `case_type=wrong_transfer`, matched `relevant_transaction_id`, `department=dispute_resolution` |
+| Matched transaction reply | One clear transaction match exists | `customer_reply` mentions the matched transaction ID, amount, type, status, safe next step, and PIN/OTP reminder |
 | Repeat recipient contradiction | Claim says wrong transfer but same recipient has earlier completed transfers | `evidence_verdict=inconsistent`, review required |
-| Multiple possible transfers | Two same-amount transfers could match | `relevant_transaction_id=null`, `evidence_verdict=insufficient_data` |
+| Multiple possible transfers | Two same-amount transfers could match | `relevant_transaction_id=null`, `evidence_verdict=insufficient_data`, reply asks for precise transaction details |
+| Smart clarification reply | Evidence is missing or ambiguous | asks for transaction ID, amount, approximate date/time, and receiver/merchant; also says not to include PIN/OTP/password/card number |
+| Funding request with amount | `"Funding er jonno 5000 taka lagbe. Fund support chai."` | stays `case_type=other`, adds `funding_request_detected`, does not ask for transaction ID |
 | Failed payment | Payment status `failed`, complaint says balance deducted | `case_type=payment_failed`, `department=payments_ops` |
 | Duplicate payment | Two identical completed payments seconds apart | second payment selected as likely duplicate |
 | Refund request | Completed merchant payment, customer changed mind | no refund promise, `department=customer_support` |
@@ -287,6 +293,18 @@ Expected key fields:
 }
 ```
 
+Expected customer reply behavior:
+
+```text
+customer_reply includes:
+- TXN-9101
+- 5000 BDT
+- transfer
+- status: completed
+- policy-safe recovery language
+- reminder not to share PIN or OTP
+```
+
 Duplicate payment:
 
 ```json
@@ -351,6 +369,64 @@ Expected key fields:
 }
 ```
 
+Ambiguous transfer:
+
+```json
+{
+  "ticket_id": "TKT-AMBIG-01",
+  "complaint": "I sent 1000 to my brother yesterday but he says he did not get it.",
+  "transaction_history": [
+    {
+      "transaction_id": "TXN-9801",
+      "timestamp": "2026-04-13T11:20:00Z",
+      "type": "transfer",
+      "amount": 1000,
+      "counterparty": "+8801712001122",
+      "status": "completed"
+    },
+    {
+      "transaction_id": "TXN-9802",
+      "timestamp": "2026-04-13T19:45:00Z",
+      "type": "transfer",
+      "amount": 1000,
+      "counterparty": "+8801812334455",
+      "status": "completed"
+    }
+  ]
+}
+```
+
+Expected behavior:
+
+```text
+relevant_transaction_id is null.
+evidence_verdict is insufficient_data.
+customer_reply asks for transaction ID, amount, approximate date/time, and receiver or merchant.
+customer_reply tells the customer not to include PIN, OTP, password, or full card number.
+```
+
+Funding request:
+
+```json
+{
+  "ticket_id": "TKT-FUND-01",
+  "complaint": "Funding er jonno 5000 taka lagbe. Fund support chai.",
+  "language": "mixed",
+  "transaction_history": []
+}
+```
+
+Expected behavior:
+
+```text
+case_type remains other, so the public schema is unchanged.
+reason_codes includes funding_request_detected.
+customer_reply explains that support cannot approve, send, or guarantee funds.
+customer_reply directs the customer to eligible bKash products or official support channels.
+customer_reply does not ask for transaction ID because this is not a transaction dispute.
+customer_reply still includes the PIN/OTP safety reminder.
+```
+
 Prompt injection:
 
 ```json
@@ -389,7 +465,10 @@ Automated test coverage:
 | --- | --- |
 | Health endpoint | Yes |
 | Wrong-transfer evidence match | Yes |
+| Evidence-aware customer reply detail | Yes |
 | Ambiguous transfer handling | Yes |
+| Smart clarification reply detail | Yes |
+| Funding request handling | Yes |
 | Phishing safety | Yes |
 | Duplicate payment detection | Yes |
 | Prompt-injection resistance | Yes |

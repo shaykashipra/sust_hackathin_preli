@@ -43,6 +43,18 @@ _AMOUNT_RE = re.compile(
 )
 _GENERIC_AMOUNT_RE = re.compile(r"(?<!\d)(\d{2,7})(?!\d)")
 _PHONE_RE = re.compile(r"01[3-9]\d{8}")
+_FUNDING_RE = re.compile(
+    r"\b("
+    r"funding|fund\s+support|fund\s+chai|fund\s+lagbe|fund\s+dorkar|"
+    r"financial\s+assistance|grant|loan|micro\s*loan|"
+    r"tk\s+lagbe|taka\s+lagbe|money\s+needed"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+def _is_funding_request(complaint: str) -> bool:
+    return bool(_FUNDING_RE.search(complaint))
 
 
 def _extract_rule_signals(complaint: str) -> Dict[str, Any]:
@@ -238,6 +250,72 @@ def _fallback_draft(case_type: CaseType, language: Optional[str]) -> tuple[str, 
     return summary, action, reply
 
 
+def _matched_transaction(txns: List[Any], txn_id: Optional[str]) -> Optional[Any]:
+    if not txn_id:
+        return None
+    return next((txn for txn in txns if txn.transaction_id == txn_id), None)
+
+
+def _customize_customer_reply(
+    reply: str,
+    case_type: CaseType,
+    verdict: EvidenceVerdict,
+    relevant_txn_id: Optional[str],
+    txns: List[Any],
+    language: Optional[str],
+    funding_request: bool = False,
+) -> str:
+    """Add evidence-aware detail while preserving the safe template wording."""
+    if funding_request and case_type == CaseType.other:
+        if language == "bn":
+            return (
+                "Dear Customer, we understand that you are asking about fund or financial support. "
+                "This support ticket cannot approve, send, or guarantee funds. Please check eligible bKash "
+                "products or official support channels for available options. Do not share any PIN, OTP, "
+                "password, or full card number."
+            )
+        return (
+            "Dear Customer, we understand that you are asking about fund or financial support. "
+            "This support ticket cannot approve, send, or guarantee funds. Please check eligible bKash "
+            "products or official support channels for available options. Do not share any PIN, OTP, "
+            "password, or full card number."
+        )
+
+    if language == "bn":
+        return reply
+
+    txn = _matched_transaction(txns, relevant_txn_id)
+    if txn:
+        amount = f"{txn.amount:g} BDT"
+        status = txn.status.value if hasattr(txn.status, "value") else str(txn.status)
+        txn_type = txn.type.value.replace("_", " ") if hasattr(txn.type, "value") else str(txn.type).replace("_", " ")
+        details = [
+            f"We have linked transaction {txn.transaction_id} ({amount}, {txn_type}, status: {status}) to this case.",
+        ]
+        if case_type == CaseType.wrong_transfer:
+            details.append("Our team will verify the transfer details and attempt recovery according to policy; recovery depends on investigation outcome and recipient cooperation.")
+        elif case_type == CaseType.payment_failed:
+            details.append("Our team will compare the debit record with the payment status and return any eligible amount through official channels after review.")
+        elif case_type == CaseType.duplicate_payment:
+            details.append("Our team will verify whether this is the duplicate charge before any reversal decision is made.")
+        elif case_type == CaseType.refund_request:
+            details.append("Our team will review the payment and merchant policy before confirming whether a refund is eligible.")
+        elif case_type == CaseType.merchant_settlement_delay:
+            details.append("Our team will check the settlement batch and update you through official support channels.")
+        elif case_type == CaseType.agent_cash_in_issue:
+            details.append("Our team will verify the cash-in record with agent operations before any balance correction.")
+        return f"{reply}\n\n" + " ".join(details)
+
+    if verdict == EvidenceVerdict.insufficient_data:
+        return (
+            f"{reply}\n\n"
+            "To help us resolve this faster, please share the transaction ID, amount, approximate date/time, "
+            "and receiver or merchant name through official support channels. Do not include any PIN, OTP, "
+            "password, or full card number."
+        )
+    return reply
+
+
 # ---------------------------------------------------------------------------
 # Confidence + reason codes
 # ---------------------------------------------------------------------------
@@ -291,6 +369,7 @@ def _build_reason_codes(
 async def analyze_ticket(request: TicketRequest) -> TicketResponse:
     # ── Step 2: Pre-scan ──────────────────────────────────────────────────
     phishing_pre = has_phishing_signal(request.complaint)
+    funding_request = _is_funding_request(request.complaint)
     detected_lang = _detect_language(request.complaint)
     effective_lang = request.language.value if request.language else detected_lang
 
@@ -372,6 +451,16 @@ async def analyze_ticket(request: TicketRequest) -> TicketResponse:
     else:
         agent_summary, next_action, customer_reply = _fallback_draft(case_type, effective_lang)
 
+    customer_reply = _customize_customer_reply(
+        customer_reply,
+        case_type,
+        verdict,
+        relevant_txn_id,
+        txns,
+        effective_lang,
+        funding_request,
+    )
+
     # ── Step 7: Safety scrub (ALWAYS) ─────────────────────────────────────
     customer_reply = scrub_customer_reply(customer_reply, effective_lang)
     next_action = scrub_next_action(next_action)
@@ -380,6 +469,8 @@ async def analyze_ticket(request: TicketRequest) -> TicketResponse:
     reason_codes = _build_reason_codes(
         case_type, verdict_str, groq_ok, phishing_pre, relevant_txn_id
     )
+    if funding_request and case_type == CaseType.other:
+        reason_codes.append("funding_request_detected")
     confidence = _compute_confidence(case_type, verdict_str, groq_ok, relevant_txn_id)
 
     return TicketResponse(

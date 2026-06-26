@@ -38,6 +38,8 @@ def test_wrong_transfer_with_matching_evidence():
     assert body["case_type"] == "wrong_transfer"
     assert body["department"] == "dispute_resolution"
     assert body["human_review_required"] is True
+    assert "TXN-9101" in body["customer_reply"]
+    assert "5000 BDT" in body["customer_reply"]
     assert "never share your pin" in body["customer_reply"].casefold()
 
 
@@ -72,6 +74,32 @@ def test_ambiguous_transfer_does_not_guess():
     assert body["evidence_verdict"] == "insufficient_data"
     assert body["case_type"] == "wrong_transfer"
     assert body["department"] == "dispute_resolution"
+    reply = body["customer_reply"].casefold()
+    assert "transaction id" in reply
+    assert "amount" in reply
+    assert "approximate date/time" in reply
+    assert "do not include any pin" in reply
+
+
+def test_funding_request_gets_funding_reply_not_transaction_clarification():
+    response = client.post(
+        "/analyze-ticket",
+        json={
+            "ticket_id": "TKT-FUND-01",
+            "complaint": "Funding er jonno 5000 taka lagbe. Fund support chai.",
+            "language": "mixed",
+            "transaction_history": [],
+        },
+    )
+    body = response.json()
+    reply = body["customer_reply"].casefold()
+    assert body["case_type"] == "other"
+    assert body["department"] == "customer_support"
+    assert "funding_request_detected" in body["reason_codes"]
+    assert "financial support" in reply
+    assert "cannot approve, send, or guarantee funds" in reply
+    assert "transaction id" not in reply
+    assert "never share your pin" in reply
 
 
 def test_phishing_is_critical_and_safe():
