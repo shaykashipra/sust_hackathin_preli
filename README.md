@@ -150,6 +150,7 @@ Use these as manual or automated checks beyond the official samples.
 | Smart clarification reply | Evidence is missing or ambiguous | asks for transaction ID, amount, approximate date/time, and receiver/merchant; also says not to include PIN/OTP/password/card number |
 | Funding request with amount | `"Funding er jonno 5000 taka lagbe. Fund support chai."` | stays `case_type=other`, adds `funding_request_detected`, does not ask for transaction ID |
 | Payment failed with amount only | `"My payment failed but 1200 taka was deducted."` | `case_type=payment_failed`, asks for payment ID/amount/merchant/time, not generic receiver details |
+| Shopping payment false positive | `"I wanted to pay for my shopping..."` | `shopping` does not trigger `PIN` phishing detection; routes as `payment_failed` |
 | Failed payment | Payment status `failed`, complaint says balance deducted | `case_type=payment_failed`, `department=payments_ops` |
 | Duplicate payment | Two identical completed payments seconds apart | second payment selected as likely duplicate |
 | Refund request | Completed merchant payment, customer changed mind | no refund promise, `department=customer_support` |
@@ -450,6 +451,26 @@ customer_reply avoids generic receiver wording so the issue stays framed as a pa
 customer_reply still includes the final PIN/OTP safety reminder.
 ```
 
+Shopping payment false-positive guard:
+
+```json
+{
+  "ticket_id": "TKT-SHOPPING-01",
+  "complaint": "i wanted to pay for my shopping but i cannot. i sent 1000 BDT but the shopper could not get the money",
+  "language": "en",
+  "transaction_history": []
+}
+```
+
+Expected behavior:
+
+```text
+case_type is payment_failed, not phishing_or_social_engineering.
+department is payments_ops, not fraud_risk.
+The word shopping does not trigger the PIN detector.
+customer_reply uses payment-failed wording instead of suspicious-contact wording.
+```
+
 Prompt injection:
 
 ```json
@@ -493,6 +514,7 @@ Automated test coverage:
 | Smart clarification reply detail | Yes |
 | Funding request handling | Yes |
 | Payment-failed clarification wording | Yes |
+| Shopping/PIN false-positive guard | Yes |
 | Phishing safety | Yes |
 | Duplicate payment detection | Yes |
 | Prompt-injection resistance | Yes |

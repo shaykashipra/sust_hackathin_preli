@@ -122,6 +122,24 @@ def test_payment_failed_gets_payment_specific_clarification():
     assert "never share your pin" in reply
 
 
+def test_shopping_payment_text_does_not_trigger_pin_phishing_false_positive():
+    response = client.post(
+        "/analyze-ticket",
+        json={
+            "ticket_id": "TKT-SHOPPING-01",
+            "complaint": "i wanted to pay for my shopping but i cannot. i sent 1000 BDT but the shopper could not get the money",
+            "language": "en",
+            "transaction_history": [],
+        },
+    )
+    body = response.json()
+    reply = body["customer_reply"].casefold()
+    assert body["case_type"] == "payment_failed"
+    assert body["department"] == "payments_ops"
+    assert "suspicious contact" not in reply
+    assert "merchant or biller name" in reply
+
+
 def test_phishing_is_critical_and_safe():
     response = client.post(
         "/analyze-ticket",

@@ -4,6 +4,7 @@ Groq's 'intent' field is used only as a secondary hint — rules are authoritati
 """
 from __future__ import annotations
 
+import re
 from typing import Optional
 
 from app.schemas import CaseType, Department, EvidenceVerdict, Severity, UserType
@@ -13,7 +14,7 @@ from app.schemas import CaseType, Department, EvidenceVerdict, Severity, UserTyp
 # ---------------------------------------------------------------------------
 
 _PHISHING_EN = [
-    "otp", "one time password", "pin", "password", "passcode",
+    "one time password",
     "share code", "share your code", "account will be blocked", "account blocked",
     "verify your account", "verification code", "your account has been",
     "suspended", "bkash agent called", "called from bkash",
@@ -29,9 +30,13 @@ _PHISHING_BN = [
     "ফ্রি টাকা", "টাকা পাঠান", "একাউন্ট সাসপেন্ড",
 ]
 
+_PHISHING_TOKEN_RE = re.compile(r"\b(?:otp|o\s*t\s*p|pin|password|passcode)\b", re.IGNORECASE)
+
 
 def has_phishing_signal(complaint: str) -> bool:
     c = complaint.lower()
+    if _PHISHING_TOKEN_RE.search(complaint):
+        return True
     for kw in _PHISHING_EN:
         if kw in c:
             return True
@@ -51,6 +56,8 @@ _PAYMENT_FAILED_KW = [
     "didn't go through", "deducted but not received", "deducted but merchant",
     "money deducted", "charged but", "transaction failed",
     "showed failed", "failed", "balance deducted",
+    "could not get the money", "shopper could not get", "merchant did not get",
+    "merchant did not receive", "seller did not receive", "seller could not get",
 ]
 
 _DUPLICATE_KW = [
