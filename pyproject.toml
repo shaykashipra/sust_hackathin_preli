@@ -1,0 +1,5 @@
+[tool.pytest.ini_options]
+pythonpath = ["."]
+addopts = "-p no:cacheprovider"
+testpaths = ["tests"]
+norecursedirs = [".git", ".pytest_cache", "pytest-cache-files-*"]
