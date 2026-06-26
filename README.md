@@ -197,7 +197,7 @@ The API response schema stays exactly as required. Internal safety events are re
 
 | Risk | Detection | Action |
 | --- | --- | --- |
-| OTP/PIN/password request | Credential request regex | Replace with safe warning |
+| OTP/PIN/password request | Credential request regex, including `o t p`, `o.t.p`, `pin number`, `pass word` style variants | Replace with safe warning |
 | Refund/reversal promise | Promise phrase detector | Replace with eligible-review wording |
 | Suspicious third-party contact | WhatsApp/Facebook/Telegram/caller patterns | Replace with official-channel guidance |
 | Phone number in customer-facing text | BD phone regex | Replace with official-channel guidance |
@@ -248,6 +248,8 @@ Credential request blocked:
 
 ```text
 "Send your OTP/PIN/password" -> rewritten to a warning never to share secrets.
+"Please provide your o t p" -> rewritten to a warning never to share secrets.
+"Enter your o.t.p" -> rewritten to a warning never to share secrets.
 ```
 
 ## Full Example Inputs
