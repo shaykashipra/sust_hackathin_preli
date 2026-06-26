@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse
 
 from app.analyzer import analyze
 from app.models import ErrorResponse, TicketRequest, TicketResponse
+from app.safety.firewall import apply_safety_firewall
 
 
 app = FastAPI(
@@ -24,7 +25,7 @@ def analyze_ticket(ticket: TicketRequest) -> TicketResponse:
         return JSONResponse(status_code=422, content={"error": "complaint must not be empty"})
     if not ticket.ticket_id.strip():
         return JSONResponse(status_code=422, content={"error": "ticket_id must not be empty"})
-    return analyze(ticket)
+    return apply_safety_firewall(ticket, analyze(ticket))
 
 
 @app.exception_handler(RequestValidationError)

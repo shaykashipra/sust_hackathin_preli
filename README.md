@@ -39,6 +39,18 @@ docker build -t queuestorm-investigator .
 docker run -p 8000:8000 queuestorm-investigator
 ```
 
+## Render
+
+This repository includes `render.yaml`.
+
+Manual Render settings:
+
+```text
+Build Command: pip install -r requirements.txt
+Start Command: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+Health Check Path: /health
+```
+
 ## Approach
 
 The code is split by responsibility to reduce merge conflicts during the short contest window:
@@ -49,6 +61,7 @@ The code is split by responsibility to reduce merge conflicts during the short c
 - `app/evidence.py`: transaction matching and evidence verdicts
 - `app/replies.py`: routing, severity, review decision, and safe response templates
 - `app/analyzer.py`: orchestration
+- `app/safety/`: final safety firewall, prompt-injection detection, decision consistency checks
 - `app/main.py`: HTTP API and controlled error handling
 
 The investigator does not simply classify complaint text. It checks transaction evidence, picks a relevant transaction only when there is enough support, marks contradictions as `inconsistent`, and returns `insufficient_data` when the match is ambiguous.
@@ -57,6 +70,14 @@ The investigator does not simply classify complaint text. It checks transaction 
 
 Customer-facing replies are generated from fixed safe templates. The complaint text is never allowed to instruct the system to ask for secrets, promise refunds, or bypass policy.
 
+After the investigator creates a response, a final safety firewall runs before JSON is returned:
+
+1. Prompt-injection detector ignores instructions such as "ignore previous instructions", "say refund approved", or "ask for OTP".
+2. Decision consistency checker corrects impossible combinations, such as phishing routed away from `fraud_risk`.
+3. Severity and human-review validator raises risky cases to review.
+4. Output validator blocks credential requests, unauthorized refund/reversal promises, and suspicious third-party contact instructions.
+5. Unsafe drafts are rewritten to a safe official-channel response.
+
 Guardrails:
 
 - Never asks for PIN, OTP, password, full card number, or secret credentials.
@@ -64,6 +85,8 @@ Guardrails:
 - Uses "any eligible amount will be returned through official channels" for payment/reversal cases.
 - Sends phishing and credential-sharing reports to `fraud_risk`.
 - Requires human review for wrong transfers, duplicate payments, suspicious cases, contradictory evidence, and critical severity cases.
+
+The API response schema stays exactly as required. Internal safety events are represented only through compact `reason_codes`, such as `prompt_injection_ignored` or `safety_rewritten`, so the judge still receives valid JSON.
 
 ## MODELS
 
@@ -84,6 +107,8 @@ The tests cover:
 - ambiguous transfer handling
 - phishing safety
 - duplicate payment detection
+- prompt-injection resistance
+- unsafe promise and third-party rewrite checks
 - controlled malformed-input error
 
 ## Sample Output
