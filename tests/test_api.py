@@ -102,6 +102,26 @@ def test_funding_request_gets_funding_reply_not_transaction_clarification():
     assert "never share your pin" in reply
 
 
+def test_payment_failed_gets_payment_specific_clarification():
+    response = client.post(
+        "/analyze-ticket",
+        json={
+            "ticket_id": "TKT-PAY-FAIL-01",
+            "complaint": "My payment failed but 1200 taka was deducted.",
+            "language": "en",
+            "transaction_history": [],
+        },
+    )
+    body = response.json()
+    reply = body["customer_reply"].casefold()
+    assert body["case_type"] == "payment_failed"
+    assert body["department"] == "payments_ops"
+    assert "merchant or biller name" in reply
+    assert "receiver or merchant" not in reply
+    assert "do not include any pin" not in reply
+    assert "never share your pin" in reply
+
+
 def test_phishing_is_critical_and_safe():
     response = client.post(
         "/analyze-ticket",

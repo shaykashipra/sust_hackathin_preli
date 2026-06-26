@@ -306,6 +306,13 @@ def _customize_customer_reply(
             details.append("Our team will verify the cash-in record with agent operations before any balance correction.")
         return f"{reply}\n\n" + " ".join(details)
 
+    if case_type == CaseType.payment_failed and verdict == EvidenceVerdict.insufficient_data:
+        return (
+            f"{reply}\n\n"
+            "To check the failed payment faster, please share the transaction ID if available, payment amount, "
+            "merchant or biller name, and approximate date/time through official support channels."
+        )
+
     if verdict == EvidenceVerdict.insufficient_data:
         return (
             f"{reply}\n\n"

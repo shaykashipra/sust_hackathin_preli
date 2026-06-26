@@ -107,6 +107,7 @@ The investigator does not simply classify complaint text. It checks transaction 
 | Ambiguity handling | Done | Does not guess when multiple transactions plausibly match |
 | Smart clarification replies | Done | For weak evidence, asks for transaction ID, amount, date/time, and receiver or merchant without requesting secrets |
 | Funding request handling | Done | Detects fund/funding/loan-support requests and avoids treating the amount as a transaction dispute |
+| Payment-failed clarification | Done | Missing-evidence payment failures ask for transaction, amount, merchant/biller, and time without sounding like an OTP issue |
 | Inconsistent evidence | Done | Detects repeat-recipient wrong-transfer contradictions |
 | Routing | Done | Maps cases to official departments |
 | Severity | Done | Raises phishing, duplicate, failed payment, wrong transfer, agent issue appropriately |
@@ -148,6 +149,7 @@ Use these as manual or automated checks beyond the official samples.
 | Multiple possible transfers | Two same-amount transfers could match | `relevant_transaction_id=null`, `evidence_verdict=insufficient_data`, reply asks for precise transaction details |
 | Smart clarification reply | Evidence is missing or ambiguous | asks for transaction ID, amount, approximate date/time, and receiver/merchant; also says not to include PIN/OTP/password/card number |
 | Funding request with amount | `"Funding er jonno 5000 taka lagbe. Fund support chai."` | stays `case_type=other`, adds `funding_request_detected`, does not ask for transaction ID |
+| Payment failed with amount only | `"My payment failed but 1200 taka was deducted."` | `case_type=payment_failed`, asks for payment ID/amount/merchant/time, not generic receiver details |
 | Failed payment | Payment status `failed`, complaint says balance deducted | `case_type=payment_failed`, `department=payments_ops` |
 | Duplicate payment | Two identical completed payments seconds apart | second payment selected as likely duplicate |
 | Refund request | Completed merchant payment, customer changed mind | no refund promise, `department=customer_support` |
@@ -427,6 +429,27 @@ customer_reply does not ask for transaction ID because this is not a transaction
 customer_reply still includes the PIN/OTP safety reminder.
 ```
 
+Payment failed with missing evidence:
+
+```json
+{
+  "ticket_id": "TKT-PAY-FAIL-01",
+  "complaint": "My payment failed but 1200 taka was deducted.",
+  "language": "en",
+  "transaction_history": []
+}
+```
+
+Expected behavior:
+
+```text
+case_type is payment_failed.
+department is payments_ops.
+customer_reply asks for transaction ID if available, amount, merchant or biller name, and approximate date/time.
+customer_reply avoids generic receiver wording so the issue stays framed as a payment failure.
+customer_reply still includes the final PIN/OTP safety reminder.
+```
+
 Prompt injection:
 
 ```json
@@ -469,6 +492,7 @@ Automated test coverage:
 | Ambiguous transfer handling | Yes |
 | Smart clarification reply detail | Yes |
 | Funding request handling | Yes |
+| Payment-failed clarification wording | Yes |
 | Phishing safety | Yes |
 | Duplicate payment detection | Yes |
 | Prompt-injection resistance | Yes |
